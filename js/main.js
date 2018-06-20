@@ -20,6 +20,10 @@ $(window).on('load', function() {
   });
 });
 
+$(window).on('resize', function() {
+  simulator.resize();
+});
+
 function animate() {
   requestAnimationFrame(animate);
   simulator.render();
