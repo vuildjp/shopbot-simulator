@@ -16,6 +16,9 @@ var Simulator = function (elementId, planeWidth, planeHeight) {
   this.scene = new THREE.Scene();
   this.scene.rotation.set(deg2rad(-90), 0, 0);
 
+  this.jogLineMaterial = new THREE.LineBasicMaterial({color: 0xff0000});
+  this.moveLineMaterial = new THREE.LineBasicMaterial({color: 0x0000ff});
+  this.currentPosition = new THREE.Vector3(0, 0, 0);
   this.addHelpers();
 
   // Lights
@@ -52,7 +55,7 @@ Simulator.prototype.addHelpers = function () {
 
   // Plane
   var geometry = new THREE.PlaneGeometry(this.planeWidth, this.planeHeight);
-  var material = new THREE.MeshBasicMaterial({color: 0xff0000, transparent: true, opacity: 0.1, side: THREE.DoubleSide});
+  var material = new THREE.MeshBasicMaterial({color: 0x777777, transparent: true, opacity: 0.1, side: THREE.DoubleSide});
   var plane = new THREE.Mesh(geometry, material);
   var px = this.planeWidth / 2;
   var py = this.planeHeight / 2;
@@ -76,17 +79,55 @@ Simulator.prototype.addShadowedLight = function (x, y, z, color, intensity) {
   this.scene.add(directionalLight);
 };
 
+Simulator.prototype.addJogLine = function (start, end) {
+  var material = this.jogLineMaterial;
+  var geometry = new THREE.Geometry();
+  geometry.vertices.push(start, end);
+
+  var line = new THREE.Line(geometry, material);
+  this.scene.add(line);
+};
+
+Simulator.prototype.addMoveLine = function (start, end) {
+  var material = this.moveLineMaterial;
+  var geometry = new THREE.Geometry();
+  geometry.vertices.push(start, end);
+
+  var line = new THREE.Line(geometry, material);
+  this.scene.add(line);
+};
+
 Simulator.prototype.loadSBP = function (data) {
   var lines = data.split('\n');
+  var currentPosition = this.currentPosition;
+
   for (var i = 0; i < lines.length; i++) {
     var line = lines[i];
 
-    if (line.startsWith('J3')) {
-      console.log(line);
+    if (line.startsWith('J')) {
+      var cols = line.split(',');
+
+      if (cols.length == 4) {
+        var x = parseFloat(cols[1]);
+        var y = parseFloat(cols[2]);
+        var z = parseFloat(cols[3]);
+        var target = new THREE.Vector3(x, y, z);
+        this.addJogLine(currentPosition.clone(), target);
+        currentPosition.set(x, y, z);
+      }
     }
 
-    if (line.startsWith('M3')) {
-      console.log(line);
+    if (line.startsWith('M')) {
+      var cols = line.split(',');
+
+      if (cols.length == 4) {
+        var x = parseFloat(cols[1]);
+        var y = parseFloat(cols[2]);
+        var z = parseFloat(cols[3]);
+        var target = new THREE.Vector3(x, y, z);
+        this.addMoveLine(currentPosition.clone(), target);
+        currentPosition.set(x, y, z);
+      }
     }
   }
 };
