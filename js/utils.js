@@ -5,3 +5,7 @@ function deg2rad(deg) {
 function rad2deg(rad) {
   return rad*THREE.Math.RAD2DEG;
 }
+
+function clamp(x, minval, maxval) {
+  return Math.max(Math.min(x, maxval), minval);
+}

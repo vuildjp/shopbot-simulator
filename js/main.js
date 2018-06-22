@@ -18,10 +18,18 @@ $(window).on('load', function() {
       reader.readAsText(file);
     }
   });
-});
 
-$(window).on('resize', function() {
-  simulator.resize();
+  $('[name="start"]').on('click', function(evt) {
+    simulator.animate = true;
+  });
+
+  $('[name="stop"]').on('click', function(evt) {
+    simulator.animate = false;
+  });
+
+  $(window).on('resize', function() {
+    simulator.resize();
+  });
 });
 
 function animate() {
