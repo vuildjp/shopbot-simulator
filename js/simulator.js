@@ -4,14 +4,22 @@ var Simulator = function (elementId, planeWidth, planeHeight) {
   this.container = document.getElementById(elementId);
   this.planeWidth = planeWidth;
   this.planeHeight = planeHeight;
+
+  // Animation settings
   this.animation = false;
-  this.points = [];
   this.currentPointIndex = 0;
   this.interpolationCoefficient = 0.0;
-  this.millSpeed = 75.0; // mm per second
+  this.points = [];
 
-  this.camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.01, 10000);
-  this.camera.position.set(0, 3000, 0);
+  // Mill settings
+  this.millSpeed = 75.0; // mm per second
+  this.millDiameter = 6.35;
+  this.millRadius = this.millDiameter / 2;
+  this.millHeight = 80;
+
+  // Camera
+  this.camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.01, 1000);
+  this.camera.position.set(0, 10, 0);
 
   this.controls = new THREE.OrbitControls(this.camera, this.container);
   this.controls.rotateSpeed = 2.0;
@@ -20,21 +28,22 @@ var Simulator = function (elementId, planeWidth, planeHeight) {
 
   this.scene = new THREE.Scene();
   this.scene.rotation.set(deg2rad(-90), 0, 0);
+  this.scene.scale.set(0.01, 0.01, 0.01);
 
-  this.lines = new THREE.Object3D();
-  this.scene.add(this.lines);
-
-  this.lineMaterial = {
+  // Objects
+  this.materials = {
     jog: new THREE.LineBasicMaterial({color: 0xff0000}),
     move: new THREE.LineBasicMaterial({color: 0x0000ff}),
+    sheet: new THREE.MeshLambertMaterial({color: 0xffd54f, emissive: 0x777777}),
   };
-
+  this.lines = new THREE.Object3D();
+  this.scene.add(this.lines);
   this.addHelpers();
-  this.develop();
+  this.addSheet();
 
   // Lights
   this.scene.add(new THREE.HemisphereLight(0x444444, 0x222222));
-  this.addShadowedLight(1, 1, 1, 0xdddddd, 0.5);
+  this.addShadowedLight(-1, -1, 2, 0xdddddd, 0.5);
   this.addShadowedLight(0.5, 1, -1, 0xaaaaaa, 1);
 
   // renderer
@@ -73,6 +82,16 @@ Simulator.prototype.render = function () {
     if (ic == 1) {
       this.interpolationCoefficient = 0;
 
+      if (p2.lineType == 'move') {
+        var sheetBSP = this.sheetBSP.subtract(this.getToolpathBSP(p1, p2));
+        var mesh = new THREE.Mesh(sheetBSP.toGeometry(), this.materials.sheet);
+        this.scene.add(mesh);
+        this.scene.remove(this.sheetMesh);
+        this.sheetMesh.geometry.dispose();
+        this.sheetBSP = sheetBSP;
+        this.sheetMesh = mesh;
+      }
+
       if (this.currentPointIndex < (this.points.length - 2)) {
         this.currentPointIndex += 1;
       } else {
@@ -101,11 +120,13 @@ Simulator.prototype.addHelpers = function () {
   this.scene.add(plane);
 
   // Mill
-  var geometry = new THREE.CylinderGeometry(3.175, 3.175, 80);
+  var radius = this.millRadius;
+  var height = this.millHeight;
+  var geometry = new THREE.CylinderGeometry(radius, radius, height);
   var material = new THREE.MeshStandardMaterial({color: 0xbbbbbb, emissive: 0x555555, metalness: 1.0});
   var cylinder = new THREE.Mesh(geometry, material);
   cylinder.rotation.set(deg2rad(-90), 0, 0);
-  cylinder.position.set(0, 0, 40);
+  cylinder.position.set(0, 0, height / 2);
   this.mill = new THREE.Object3D();
   this.mill.add(cylinder);
   this.scene.add(this.mill);
@@ -127,8 +148,17 @@ Simulator.prototype.addShadowedLight = function (x, y, z, color, intensity) {
   this.scene.add(directionalLight);
 };
 
+Simulator.prototype.addSheet = function () {
+  var sheetBSP = this.getSheetBSP();
+  var material = this.materials.sheet;
+  var mesh = new THREE.Mesh(sheetBSP.toGeometry(), material);
+  this.sheetBSP = sheetBSP;
+  this.sheetMesh = mesh;
+  this.scene.add(mesh);
+};
+
 Simulator.prototype.addLine = function (start, end, lineType) {
-  var material = this.lineMaterial[lineType];
+  var material = this.materials[lineType];
   var geometry = new THREE.Geometry();
   geometry.vertices.push(start, end);
 
@@ -136,8 +166,21 @@ Simulator.prototype.addLine = function (start, end, lineType) {
   this.lines.add(line);
 };
 
+Simulator.prototype.removeLines = function () {
+  var line;
+  var lines = this.lines;
+
+  for (var i = lines.children.length - 1; i >= 0; i--) {
+    line = lines.children[i];
+    lines.remove(line);
+    line.geometry.dispose();
+  }
+
+  line = null;
+};
+
 Simulator.prototype.loadSBP = function (data) {
-  var lineType
+  var lineType;
   var rows = data.split('\n');
   var currentPosition = new THREE.Vector3(0, 0, 0);
 
@@ -189,87 +232,105 @@ Simulator.prototype.loadSBP = function (data) {
 
     if (lineType) {
       currentPosition.copy(end);
+      var point = currentPosition.clone();
+      point.lineType = lineType;
+      this.points.push(point);
       this.addLine(start, end, lineType);
-      this.points.push(currentPosition.clone());
     }
 
     lineType = null;
   }
 };
 
-Simulator.prototype.removeLines = function () {
-  var line;
-  var lines = this.lines;
+Simulator.prototype.getHexahedronPolygons = function (v0, v1, v2, v3, v4, v5, v6, v7) {
+  /**
+   * Vertex indices
+   *
+   *   6____5
+   * 7/|__4/|           Z
+   * | 2__|_1           | X
+   * 3/___0/       Y ___|/
+   *
+   */
+  var vertices = [
+    new ThreeBSP.Vertex(v0.x, v0.y, v0.z),
+    new ThreeBSP.Vertex(v1.x, v1.y, v1.z),
+    new ThreeBSP.Vertex(v2.x, v2.y, v2.z),
+    new ThreeBSP.Vertex(v3.x, v3.y, v3.z),
+    new ThreeBSP.Vertex(v4.x, v4.y, v4.z),
+    new ThreeBSP.Vertex(v5.x, v5.y, v5.z),
+    new ThreeBSP.Vertex(v6.x, v6.y, v6.z),
+    new ThreeBSP.Vertex(v7.x, v7.y, v7.z)
+  ];
 
-  for (var i = lines.children.length - 1; i >= 0; i--) {
-    line = lines.children[i];
-    lines.remove(line);
-    line.geometry.dispose();
-  }
+  var polygons = [
+    new ThreeBSP.Polygon([vertices[3], vertices[2], vertices[1], vertices[0]]),
+    new ThreeBSP.Polygon([vertices[4], vertices[5], vertices[6], vertices[7]]),
+    new ThreeBSP.Polygon([vertices[0], vertices[1], vertices[5], vertices[4]]),
+    new ThreeBSP.Polygon([vertices[2], vertices[3], vertices[7], vertices[6]]),
+    new ThreeBSP.Polygon([vertices[0], vertices[4], vertices[7], vertices[3]]),
+    new ThreeBSP.Polygon([vertices[1], vertices[2], vertices[6], vertices[5]])
+  ];
 
-  line = null;
+  return polygons;
 };
 
-Simulator.prototype.develop = function () {
-  var scope = this;
+Simulator.prototype.getSheetBSP = function () {
+  var s = 20; // shift xy
+  var x = this.planeWidth + s;
+  var y = this.planeHeight + s;
+  var z = 24;
 
-  function getBoxBSP() {
-    var o = 20;
-    var x = scope.planeWidth;
-    var y = scope.planeHeight;
-    var z = 24;
+  var v0 = new ThreeBSP.Vertex(s, s, 0);
+  var v1 = new ThreeBSP.Vertex(x, s, 0);
+  var v2 = new ThreeBSP.Vertex(x, y, 0);
+  var v3 = new ThreeBSP.Vertex(s, y, 0);
+  var v4 = new ThreeBSP.Vertex(s, s, z);
+  var v5 = new ThreeBSP.Vertex(x, s, z);
+  var v6 = new ThreeBSP.Vertex(x, y, z);
+  var v7 = new ThreeBSP.Vertex(s, y, z);
 
-    var vertices = [
-      new ThreeBSP.Vertex(o, o, 0),
-      new ThreeBSP.Vertex(x, o, 0),
-      new ThreeBSP.Vertex(x, y, 0),
-      new ThreeBSP.Vertex(o, y, 0),
-      new ThreeBSP.Vertex(o, o, z),
-      new ThreeBSP.Vertex(x, o, z),
-      new ThreeBSP.Vertex(x, y, z),
-      new ThreeBSP.Vertex(o, y, z)
-    ];
-
-    var polygons = [
-      new ThreeBSP.Polygon([vertices[3], vertices[2], vertices[1], vertices[0]]),
-      new ThreeBSP.Polygon([vertices[4], vertices[5], vertices[6], vertices[7]]),
-      new ThreeBSP.Polygon([vertices[0], vertices[1], vertices[5], vertices[4]]),
-      new ThreeBSP.Polygon([vertices[2], vertices[3], vertices[7], vertices[6]]),
-      new ThreeBSP.Polygon([vertices[0], vertices[4], vertices[7], vertices[3]]),
-      new ThreeBSP.Polygon([vertices[1], vertices[2], vertices[6], vertices[5]])
-    ];
-
-    var node = new ThreeBSP.Node(polygons);
-    return new ThreeBSP(node);
-  }
-
-  function getFrustumBSP() {
-    var vertices = [
-      new ThreeBSP.Vertex(0, 0, 10),
-      new ThreeBSP.Vertex(100, 0, 10),
-      new ThreeBSP.Vertex(100, 100, 10),
-      new ThreeBSP.Vertex(0, 100, 10),
-      new ThreeBSP.Vertex(0, 0, 100),
-      new ThreeBSP.Vertex(100, 0, 100),
-      new ThreeBSP.Vertex(100, 100, 100),
-      new ThreeBSP.Vertex(0, 100, 100)
-    ];
-
-    var polygons = [
-      new ThreeBSP.Polygon([vertices[3], vertices[2], vertices[1], vertices[0]]),
-      new ThreeBSP.Polygon([vertices[4], vertices[5], vertices[6], vertices[7]]),
-      new ThreeBSP.Polygon([vertices[0], vertices[1], vertices[5], vertices[4]]),
-      new ThreeBSP.Polygon([vertices[2], vertices[3], vertices[7], vertices[6]]),
-      new ThreeBSP.Polygon([vertices[0], vertices[4], vertices[7], vertices[3]]),
-      new ThreeBSP.Polygon([vertices[1], vertices[2], vertices[6], vertices[5]])
-    ];
-
-    var node = new ThreeBSP.Node(polygons);
-    return new ThreeBSP(node);
-  }
-
-  var result = getBoxBSP().subtract(getFrustumBSP());
-  var material = new THREE.MeshLambertMaterial({color: 0xffd54f, emissive: 0x777777});
-  var mesh = new THREE.Mesh(result.toGeometry(), material);
-  this.scene.add(mesh);
+  var polygons = this.getHexahedronPolygons(v0, v1, v2, v3, v4, v5, v6, v7);
+  var node = new ThreeBSP.Node(polygons);
+  return new ThreeBSP(node);
 };
+
+Simulator.prototype.getToolpathBSP = function (p1, p2) {
+  var v0, v1, v2, v3, v4, v5, v6, v7;
+  var z = 100;
+
+  var va = new THREE.Vector3().subVectors(p2, p1);
+  var vb = new THREE.Vector3(0, 0, 1);
+  var cross = new THREE.Vector3().crossVectors(va, vb);
+
+  if (cross.x == 0 && cross.y == 0) {
+    var millRadius = this.millRadius;
+
+    v0 = new THREE.Vector3(p2.x - millRadius, p2.y - millRadius, p2.z);
+    v1 = new THREE.Vector3(p2.x + millRadius, p2.y - millRadius, p2.z);
+    v2 = new THREE.Vector3(p2.x + millRadius, p2.y + millRadius, p2.z);
+    v3 = new THREE.Vector3(p2.x - millRadius, p2.y + millRadius, p2.z);
+    v4 = v0.clone().setZ(z);
+    v5 = v1.clone().setZ(z);
+    v6 = v2.clone().setZ(z);
+    v7 = v3.clone().setZ(z);
+  } else {
+    cross.normalize();
+    cross.multiplyScalar(this.millRadius);
+
+    var crossInv = cross.clone().negate();
+
+    v0 = new THREE.Vector3().addVectors(p1, crossInv);
+    v1 = new THREE.Vector3().addVectors(p1, cross);
+    v2 = new THREE.Vector3().addVectors(p2, cross);
+    v3 = new THREE.Vector3().addVectors(p2, crossInv);
+    v4 = v0.clone().setZ(z);
+    v5 = v1.clone().setZ(z);
+    v6 = v2.clone().setZ(z);
+    v7 = v3.clone().setZ(z);
+  }
+
+  var polygons = this.getHexahedronPolygons(v0, v1, v2, v3, v4, v5, v6, v7);
+  var node = new ThreeBSP.Node(polygons);
+  return new ThreeBSP(node);
+}
