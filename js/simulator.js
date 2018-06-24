@@ -62,7 +62,10 @@ var Simulator = function (elementId, millSpeed) {
   this.renderer.gammaInput = true;
   this.renderer.gammaOutput = true;
   this.renderer.shadowMap.enabled = true;
+  this.renderer.vr.enabled = true;
   this.container.appendChild(this.renderer.domElement);
+
+  document.body.appendChild(WEBVR.createButton(this.renderer));
 };
 
 Simulator.prototype.resize = function () {

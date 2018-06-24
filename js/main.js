@@ -1,4 +1,5 @@
 var simulator;
+var polyfill = new WebVRPolyfill();
 
 $(window).on('load', function() {
   var millSpeed = parseFloat($('[name="millSpeed"]').val());
