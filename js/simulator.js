@@ -250,6 +250,34 @@ Simulator.prototype.addShopbot = function () {
   this.zrails.add(motor);
 };
 
+Simulator.prototype.addCircle = function (cols, end) {
+  var diameter = parseFloat(cols[1]);
+  var centerX = parseFloat(cols[2]);
+  var centerY = parseFloat(cols[3]);
+  var plunge = parseFloat(cols[8]);
+  var repetitions = parseInt(cols[9]);
+
+  var material = this.materials.move;
+  var geometry = new THREE.Geometry();
+  var radius = diameter / 2;
+  var segments = 8;
+
+  for (var i = 0; i <= segments; i++) {
+    var vertex = new THREE.Vector3(
+      radius * Math.cos(2 * Math.PI * i / segments) + centerX,
+      radius * Math.sin(2 * Math.PI * i / segments) + centerY,
+      end.z
+    );
+    geometry.vertices.push(vertex);
+  }
+
+  for (var i = 1; i <= repetitions; i++) {
+    var line = new THREE.Line(geometry, material);
+    line.position.z = plunge * i;
+    this.toolpath.add(line);
+  }
+};
+
 Simulator.prototype.addLine = function (start, end, lineType) {
   var material = this.materials[lineType];
   var geometry = new THREE.Geometry();
@@ -275,18 +303,22 @@ Simulator.prototype.removeLines = function () {
 Simulator.prototype.loadSBP = function (data) {
   var lineType;
   var rows = data.split('\n');
+  var rowsCount = rows.length;
   var currentPosition = new THREE.Vector3(0, 0, 0);
 
   this.sbpData = data;
   this.points = [currentPosition.clone()];
 
-  for (var i = 0; i < rows.length; i++) {
+  for (var i = 0; i < rowsCount; i++) {
     var row = rows[i];
     var cols = row.split(',');
     var start = currentPosition.clone();
     var end = new THREE.Vector3().copy(start);
 
     switch (cols[0]) {
+      case 'CP':
+        lineType = 'cut-circle';
+        break;
       case 'J2':
         end.x = parseFloat(cols[1]);
         end.y = parseFloat(cols[2]);
@@ -323,12 +355,14 @@ Simulator.prototype.loadSBP = function (data) {
         break;
     }
 
-    if (lineType) {
+    if (lineType == 'jog' || lineType == 'move') {
       currentPosition.copy(end);
       var point = currentPosition.clone();
       point.lineType = lineType;
       this.points.push(point);
       this.addLine(start, end, lineType);
+    } else if (lineType == 'cut-circle') {
+      this.addCircle(cols, end);
     }
 
     lineType = null;
