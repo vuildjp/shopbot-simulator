@@ -1,9 +1,11 @@
-var Simulator = function (elementId, planeWidth, planeHeight, millSpeed) {
+var Simulator = function (elementId, millSpeed) {
   if (!Detector.webgl) Detector.addGetWebGLMessage();
 
   this.container = document.getElementById(elementId);
-  this.planeWidth = planeWidth;
-  this.planeHeight = planeHeight;
+  this.sheetWidth = 2440;
+  this.sheetHeight = 1220;
+  this.matWidth = 2745;
+  this.matHeight = 1372;
 
   // Animation settings
   this.animation = false;
@@ -19,7 +21,7 @@ var Simulator = function (elementId, planeWidth, planeHeight, millSpeed) {
 
   // Camera
   this.camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.01, 1000);
-  this.camera.position.set(0, 10, 0);
+  this.camera.position.set(0, 20, 0);
 
   this.controls = new THREE.OrbitControls(this.camera, this.container);
   this.controls.rotateSpeed = 2.0;
@@ -30,17 +32,20 @@ var Simulator = function (elementId, planeWidth, planeHeight, millSpeed) {
   this.scene.rotation.set(deg2rad(-90), 0, 0);
   this.scene.scale.set(0.01, 0.01, 0.01);
 
-  // Objects
   this.materials = {
     jog: new THREE.LineBasicMaterial({color: 0xff0000}),
     move: new THREE.LineBasicMaterial({color: 0x0000ff}),
-    sheet: new THREE.MeshLambertMaterial({color: 0xffd54f, emissive: 0x777777}),
+    sheet: new THREE.MeshLambertMaterial({color: 0xffca28, emissive: 0x777777}),
   };
+
+  // Objects
   this.toolpath = new THREE.Object3D();
   this.shopbot = new THREE.Object3D();
   this.scene.add(this.toolpath);
   this.scene.add(this.shopbot);
   this.addHelpers();
+  this.addMat();
+  this.addMill();
   this.addSheet();
   this.addShopbot();
 
@@ -49,7 +54,7 @@ var Simulator = function (elementId, planeWidth, planeHeight, millSpeed) {
   this.addShadowedLight(-1, -1, 2, 0xdddddd, 0.5);
   this.addShadowedLight(0.5, 1, -1, 0xaaaaaa, 1);
 
-  // renderer
+  // Renderer
   this.renderer = new THREE.WebGLRenderer({antialias:true});
   this.renderer.setClearColor(0xffffff);
   this.renderer.setPixelRatio(window.devicePixelRatio);
@@ -76,11 +81,12 @@ Simulator.prototype.render = function () {
     var ic = clamp(this.interpolationCoefficient + step, 0, 1);
     this.interpolationCoefficient = ic;
 
-    this.mill.position.set(
-      (1 - ic) * p1.x + ic * p2.x,
-      (1 - ic) * p1.y + ic * p2.y,
-      (1 - ic) * p1.z + ic * p2.z
-    );
+    var x = (1 - ic) * p1.x + ic * p2.x;
+    var y = (1 - ic) * p1.y + ic * p2.y;
+    var z = (1 - ic) * p1.z + ic * p2.z;
+    this.mill.position.set(x, y, z);
+    this.yrails.position.set(x, 0, 0);
+    this.zrails.position.set(0, y, z);
 
     if (ic == 1) {
       this.interpolationCoefficient = 0;
@@ -108,33 +114,6 @@ Simulator.prototype.render = function () {
   this.renderer.render(this.scene, this.camera);
 };
 
-Simulator.prototype.addHelpers = function () {
-  // Axes
-  var axesHelper = new THREE.AxesHelper(200);
-  this.scene.add(axesHelper);
-
-  // Plane
-  var geometry = new THREE.PlaneGeometry(2745, 1372);
-  var material = new THREE.MeshBasicMaterial({color: 0x777777, transparent: true, opacity: 0.1, side: THREE.DoubleSide});
-  var plane = new THREE.Mesh(geometry, material);
-  var px = 2745 / 2;
-  var py = 1372 / 2;
-  plane.position.set(px, py, 0);
-  this.scene.add(plane);
-
-  // Mill
-  var radius = this.millRadius;
-  var height = this.millHeight;
-  var geometry = new THREE.CylinderGeometry(radius, radius, height);
-  var material = new THREE.MeshStandardMaterial({color: 0xbbbbbb, emissive: 0x555555, metalness: 1.0});
-  var cylinder = new THREE.Mesh(geometry, material);
-  cylinder.rotation.set(deg2rad(-90), 0, 0);
-  cylinder.position.set(0, 0, height / 2);
-  this.mill = new THREE.Object3D();
-  this.mill.add(cylinder);
-  this.scene.add(this.mill);
-};
-
 Simulator.prototype.addShadowedLight = function (x, y, z, color, intensity) {
   var directionalLight = new THREE.DirectionalLight(color, intensity);
   directionalLight.position.set(x, y, z);
@@ -151,6 +130,36 @@ Simulator.prototype.addShadowedLight = function (x, y, z, color, intensity) {
   this.scene.add(directionalLight);
 };
 
+Simulator.prototype.addHelpers = function () {
+  // Axes
+  var axesHelper = new THREE.AxesHelper(200);
+  this.scene.add(axesHelper);
+};
+
+Simulator.prototype.addMat = function () {
+  var width = this.matWidth;
+  var height = this.matHeight;
+  var geometry = new THREE.PlaneGeometry(width, height);
+  var material = new THREE.MeshBasicMaterial({color: 0x777777, transparent: true, opacity: 0.2, side: THREE.DoubleSide});
+  var plane = new THREE.Mesh(geometry, material);
+  plane.position.x = width / 2;
+  plane.position.y = height / 2;
+  this.scene.add(plane);
+};
+
+Simulator.prototype.addMill = function () {
+  var radius = this.millRadius;
+  var height = this.millHeight;
+  var geometry = new THREE.CylinderGeometry(radius, radius, height);
+  var material = new THREE.MeshStandardMaterial({color: 0xbbbbbb, emissive: 0x555555, metalness: 1.0});
+  var cylinder = new THREE.Mesh(geometry, material);
+  cylinder.rotation.set(deg2rad(-90), 0, 0);
+  cylinder.position.z = height / 2;
+  this.mill = new THREE.Object3D();
+  this.mill.add(cylinder);
+  this.scene.add(this.mill);
+};
+
 Simulator.prototype.addSheet = function () {
   var sheetBSP = this.getSheetBSP();
   var material = this.materials.sheet;
@@ -161,7 +170,84 @@ Simulator.prototype.addSheet = function () {
 };
 
 Simulator.prototype.addShopbot = function () {
-  
+  this.xrails = new THREE.Object3D();
+  this.yrails = new THREE.Object3D();
+  this.zrails = new THREE.Object3D();
+  this.shopbot.add(this.xrails);
+  this.xrails.add(this.yrails);
+  this.yrails.add(this.zrails);
+
+  var matWidth = this.matWidth;
+  var matHeight = this.matHeight;
+
+  // Shopbot parts share the same material
+  var material = new THREE.MeshStandardMaterial({color: 0xcfd8dc});
+
+  // X rails
+  var xrailWidth = matWidth + 300;
+  var xrailHeight = 100;
+  var xrailDepth = 300;
+  var xrailY = 200;
+  var xrailZ = 50;
+  var geometry = new THREE.BoxGeometry(xrailWidth, xrailHeight, xrailDepth);
+
+  var xrail1 = new THREE.Mesh(geometry, material);
+  xrail1.position.x = matWidth / 2;
+  xrail1.position.y = - xrailY;
+  xrail1.position.z = xrailZ;
+  this.xrails.add(xrail1);
+
+  var xrail2 = new THREE.Mesh(geometry, material);
+  xrail2.position.x = matWidth / 2;
+  xrail2.position.y = matHeight + xrailY;
+  xrail2.position.z = xrailZ;
+  this.xrails.add(xrail2);
+
+  // Y rails
+  var yrailWidth = 100;
+  var yrailHeight = matHeight + xrailHeight + xrailY*2;
+  var yrailDepth = 250;
+  var yrailX = 100;
+  var geometry = new THREE.BoxGeometry(yrailWidth, yrailHeight, yrailDepth);
+  var yrail = new THREE.Mesh(geometry, material);
+  yrail.position.x = yrailX;
+  yrail.position.y = matHeight / 2;
+  yrail.position.z = yrailDepth / 2 + xrailDepth / 2 + xrailZ + 50;
+  this.yrails.add(yrail);
+
+  var supportWidth = 200;
+  var supportHeight = xrailHeight;
+  var supportDepth = 350;
+  var geometry = new THREE.BoxGeometry(supportWidth, supportHeight, supportDepth);
+
+  var support1 = new THREE.Mesh(geometry, material);
+  support1.position.x = yrailX;
+  support1.position.y = - xrailY;
+  support1.position.z = yrailDepth / 2 + xrailDepth / 2 + xrailZ;
+  this.yrails.add(support1);
+
+  var support2 = new THREE.Mesh(geometry, material);
+  support2.position.x = yrailX;
+  support2.position.y = matHeight + xrailY;
+  support2.position.z = yrailDepth / 2 + xrailDepth / 2 + xrailZ;
+  this.yrails.add(support2);
+
+  // Z rails
+  var carriageWidth = 100;
+  var carriageHeight = 200;
+  var carriageDepth = 400;
+  var geometry = new THREE.BoxGeometry(carriageWidth, carriageHeight, carriageDepth);
+  var carriage = new THREE.Mesh(geometry, material);
+  carriage.position.set(0, 0, 350);
+  this.zrails.add(carriage);
+
+  var motorRadius = carriageWidth / 2;
+  var motorHeight = 120;
+  var geometry = new THREE.CylinderGeometry(motorRadius, motorRadius, motorHeight);
+  var motor = new THREE.Mesh(geometry, material);
+  motor.position.set(0, 0, 120);
+  motor.rotation.set(deg2rad(-90), 0, 0);
+  this.zrails.add(motor);
 };
 
 Simulator.prototype.addLine = function (start, end, lineType) {
@@ -284,8 +370,8 @@ Simulator.prototype.getHexahedronPolygons = function (v0, v1, v2, v3, v4, v5, v6
 
 Simulator.prototype.getSheetBSP = function () {
   var s = 20; // shift xy
-  var x = this.planeWidth + s;
-  var y = this.planeHeight + s;
+  var x = this.sheetWidth + s;
+  var y = this.sheetHeight + s;
   var z = 24;
 
   var v0 = new ThreeBSP.Vertex(s, s, 0);

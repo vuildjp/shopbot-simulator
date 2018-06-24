@@ -3,7 +3,7 @@ var simulator;
 $(window).on('load', function() {
   var millSpeed = parseFloat($('[name="millSpeed"]').val());
 
-  simulator = new Simulator('canvas', 2440, 1220, millSpeed);
+  simulator = new Simulator('canvas', millSpeed);
   animate();
 
   $('[name="sbp"]').on('change', function(evt) {
@@ -39,7 +39,10 @@ $(window).on('load', function() {
         simulator.sheetMesh.visible = evt.target.checked;
         break;
       case 'toolpath':
-        simulator.lines.visible = evt.target.checked;
+        simulator.toolpath.visible = evt.target.checked;
+        break;
+      case 'shopbot':
+        simulator.shopbot.visible = evt.target.checked;
         break;
     }
   });
