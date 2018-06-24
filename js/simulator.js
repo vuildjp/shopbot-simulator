@@ -1,4 +1,4 @@
-var Simulator = function (elementId, planeWidth, planeHeight) {
+var Simulator = function (elementId, planeWidth, planeHeight, millSpeed) {
   if (!Detector.webgl) Detector.addGetWebGLMessage();
 
   this.container = document.getElementById(elementId);
@@ -12,7 +12,7 @@ var Simulator = function (elementId, planeWidth, planeHeight) {
   this.points = [];
 
   // Mill settings
-  this.millSpeed = 75.0; // mm per second
+  this.millSpeed = millSpeed; // mm per second
   this.millDiameter = 6.35;
   this.millRadius = this.millDiameter / 2;
   this.millHeight = 80;
@@ -36,10 +36,13 @@ var Simulator = function (elementId, planeWidth, planeHeight) {
     move: new THREE.LineBasicMaterial({color: 0x0000ff}),
     sheet: new THREE.MeshLambertMaterial({color: 0xffd54f, emissive: 0x777777}),
   };
-  this.lines = new THREE.Object3D();
-  this.scene.add(this.lines);
+  this.toolpath = new THREE.Object3D();
+  this.shopbot = new THREE.Object3D();
+  this.scene.add(this.toolpath);
+  this.scene.add(this.shopbot);
   this.addHelpers();
   this.addSheet();
+  this.addShopbot();
 
   // Lights
   this.scene.add(new THREE.HemisphereLight(0x444444, 0x222222));
@@ -157,18 +160,22 @@ Simulator.prototype.addSheet = function () {
   this.scene.add(mesh);
 };
 
+Simulator.prototype.addShopbot = function () {
+  
+};
+
 Simulator.prototype.addLine = function (start, end, lineType) {
   var material = this.materials[lineType];
   var geometry = new THREE.Geometry();
   geometry.vertices.push(start, end);
 
   var line = new THREE.Line(geometry, material);
-  this.lines.add(line);
+  this.toolpath.add(line);
 };
 
 Simulator.prototype.removeLines = function () {
   var line;
-  var lines = this.lines;
+  var lines = this.toolpath;
 
   for (var i = lines.children.length - 1; i >= 0; i--) {
     line = lines.children[i];

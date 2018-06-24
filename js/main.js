@@ -1,7 +1,9 @@
 var simulator;
 
 $(window).on('load', function() {
-  simulator = new Simulator('canvas', 2440, 1220);
+  var millSpeed = parseFloat($('[name="millSpeed"]').val());
+
+  simulator = new Simulator('canvas', 2440, 1220, millSpeed);
   animate();
 
   $('[name="sbp"]').on('change', function(evt) {
@@ -25,6 +27,21 @@ $(window).on('load', function() {
 
   $('[name="stop"]').on('click', function(evt) {
     simulator.animate = false;
+  });
+
+  $('[name="millSpeed"]').on('change', function(evt) {
+    simulator.millSpeed = parseFloat(evt.target.value);
+  });
+
+  $('[name="visibility"]').on('change', function(evt) {
+    switch (evt.target.value) {
+      case 'sheet':
+        simulator.sheetMesh.visible = evt.target.checked;
+        break;
+      case 'toolpath':
+        simulator.lines.visible = evt.target.checked;
+        break;
+    }
   });
 
   $(window).on('resize', function() {

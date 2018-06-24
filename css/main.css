@@ -5,5 +5,16 @@ body {
 }
 
 #control-panel {
+  padding: 20px;
   position: absolute;
+}
+
+.mbs {
+  margin-bottom: 10px;
+}
+.mbm {
+  margin-bottom: 20px;
+}
+.mbl {
+  margin-bottom: 40px;
 }

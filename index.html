@@ -15,9 +15,23 @@
   </head>
   <body>
     <div id="control-panel">
-      <input type="file" name="sbp" value="">
-      <input type="button" name="start" value="Start">
-      <input type="button" name="stop" value="Stop">
+      <div class="mbs">
+        SBP file: <input type="file" name="sbp" value="">
+      </div>
+      <div class="mbs">
+        Simulation:
+        <input type="button" name="start" value="Start">
+        <input type="button" name="stop" value="Stop">
+      </div>
+      <div class="mbs">
+        Speed: <input type="number" name="millSpeed" value="75" step="1"> mm/s
+      </div>
+      <div class="mbs">
+        Visibility:
+        <input type="checkbox" name="visibility" value="sheet" checked> Sheet
+        <input type="checkbox" name="visibility" value="toolpath" checked> Toolpath
+        <input type="checkbox" name="visibility" value="shopbot"> Shopbot
+      </div>
     </div>
     <div id="canvas"></div>
   </body>
