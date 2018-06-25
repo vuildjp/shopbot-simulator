@@ -97,6 +97,7 @@ Simulator.prototype.render = function () {
       if (p2.lineType == 'move') {
         var sheetBSP = this.sheetBSP.subtract(this.getToolpathBSP(p1, p2));
         var mesh = new THREE.Mesh(sheetBSP.toGeometry(), this.materials.sheet);
+        mesh.visible = this.sheetMesh.visible;
         this.scene.add(mesh);
         this.scene.remove(this.sheetMesh);
         this.sheetMesh.geometry.dispose();

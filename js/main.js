@@ -1,9 +1,13 @@
 var simulator;
+var $positionX, $positionY, $positionZ;
 var polyfill = new WebVRPolyfill();
 
 $(window).on('load', function() {
-  var millSpeed = parseFloat($('[name="millSpeed"]').val());
+  $positionX = $('[name="positionX"]');
+  $positionY = $('[name="positionY"]');
+  $positionZ = $('[name="positionZ"]');
 
+  var millSpeed = parseFloat($('[name="millSpeed"]').val());
   simulator = new Simulator('canvas', millSpeed);
   animate();
 
@@ -56,4 +60,10 @@ $(window).on('load', function() {
 function animate() {
   requestAnimationFrame(animate);
   simulator.render();
+
+  if (simulator.animate && simulator.interpolationCoefficient == 0) {
+    $positionX.val(simulator.mill.position.x);
+    $positionY.val(simulator.mill.position.y);
+    $positionZ.val(simulator.mill.position.z);
+  }
 }
