@@ -67,3 +67,17 @@ function animate() {
     $positionZ.val(simulator.mill.position.z);
   }
 }
+
+function loadToolpath(data) {
+  // $('#responsetext').text(data)
+  data = JSON.parse(data)
+  for (var i = 0; i < data.sbps.length; i++) {
+    var url = data.sbps[i]
+    var xhr = new XMLHttpRequest()
+    xhr.open('GET', url, true)
+    xhr.addEventListener('load', function () {
+      simulator.loadSBP(xhr.response)
+    })
+    xhr.send()
+  }
+}
