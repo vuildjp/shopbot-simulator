@@ -1,6 +1,6 @@
 var simulator;
 var $positionX, $positionY, $positionZ;
-var polyfill = new WebVRPolyfill();
+// var polyfill = new WebVRPolyfill();
 
 $(window).on('load', function() {
   $positionX = $('[name="positionX"]');

@@ -65,7 +65,7 @@ var Simulator = function (elementId, millSpeed) {
   this.renderer.vr.enabled = true;
   this.container.appendChild(this.renderer.domElement);
 
-  document.body.appendChild(WEBVR.createButton(this.renderer));
+  // document.body.appendChild(WEBVR.createButton(this.renderer));
 };
 
 Simulator.prototype.resize = function () {
