@@ -304,7 +304,7 @@ Simulator.prototype.removeLines = function () {
   line = null;
 };
 
-Simulator.prototype.loadSBP = function (data) {
+Simulator.prototype.loadSbp = function (data) {
   var lineType;
   var rows = data.split('\n');
   var rowsCount = rows.length;

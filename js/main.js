@@ -19,7 +19,7 @@ $(window).on('load', function() {
       var reader = new FileReader();
 
       reader.onload = function(evt) {
-        simulator.loadSBP(evt.target.result);
+        simulator.loadSbp(evt.target.result);
       };
 
       reader.readAsText(file);
@@ -68,16 +68,20 @@ function animate() {
   }
 }
 
+function requestSbp(url) {
+  var xhr = new XMLHttpRequest()
+  xhr.open('GET', url, true)
+  xhr.addEventListener('load', function () {
+    simulator.loadSbp(xhr.response)
+  })
+  xhr.send()
+}
+
 function loadToolpath(data) {
-  // $('#responsetext').text(data)
+  $('#responsetext').text(data)
   data = JSON.parse(data)
   for (var i = 0; i < data.sbps.length; i++) {
     var url = data.sbps[i]
-    var xhr = new XMLHttpRequest()
-    xhr.open('GET', url, true)
-    xhr.addEventListener('load', function () {
-      simulator.loadSBP(xhr.response)
-    })
-    xhr.send()
+    requestSbp(url)
   }
 }
