@@ -254,6 +254,78 @@ Simulator.prototype.addShopbot = function () {
   this.zrails.add(motor);
 };
 
+Simulator.prototype.addGcodeCircle = function (cols, start, end, lineType) {
+  var endPointX = parseFloat(cols[2]);
+  var endPointY = parseFloat(cols[3]);
+  var offsetX = parseFloat(cols[4]);
+  var offsetY = parseFloat(cols[5]);
+  var direction = parseFloat(cols[7]);
+
+  var centerX = start.x + offsetX;
+  var centerY = start.y + offsetY;
+  var plunge = 0;
+  var repetitions = 1;
+
+  var material = this.materials[lineType];
+  var geometry = new THREE.Geometry();
+
+  var centerVec3d = new THREE.Vector3(centerX, centerY, start.z);
+  var endPointVec3d = new THREE.Vector3(endPointX, endPointY, start.z);
+  var startPointVec3d = new THREE.Vector3(start.x, start.y, start.z);
+
+  var startVec = startPointVec3d.clone().sub(centerVec3d);
+  var endVec = endPointVec3d.clone().sub(centerVec3d);
+
+  var radius = centerVec3d.distanceTo(endPointVec3d);
+  var segments = 24;
+
+  var startAngle = Math.atan2(start.y - centerY, start.x - centerX);
+  var endAngle = Math.atan2(endPointY - centerY, endPointX - centerX);
+  sweepAngle = startVec.angleTo(endVec);
+
+  if (direction > 0) {
+    // G2 CW
+    sweepAngle = -sweepAngle;  
+  } 
+  // For G3 CCW (same as THREEJS), Do nothing
+
+  for (var i = 0; i < segments; i++) {
+    var stepAngle = (i * sweepAngle/ segments) + startAngle;
+    var vertex = new THREE.Vector3(
+      radius * Math.cos(stepAngle) + centerX ,
+      radius * Math.sin(stepAngle) + centerY,
+      start.z
+    );
+    geometry.vertices.push(vertex);
+    var point = vertex.clone();
+    point.lineType = lineType;
+    this.points.push(point)
+  }
+  geometry.vertices.push(end);
+
+  //this.drawDebugArcGeometry(startPointVec3d, endPointVec3d, centerVec3d);
+
+  for (var i = 1; i <= repetitions; i++) {
+    var line = new THREE.Line(geometry, material);
+    line.position.z = plunge * i;
+    this.toolpath.add(line);
+  }
+};
+
+Simulator.prototype.drawDebugArcGeometry = function (a, b, c) {
+  // For Debugging Arc and visualizing center point,
+  var material = this.materials.move;
+  var geometry1 = new THREE.Geometry();
+  geometry1.vertices.push(c, a);
+  var geometry2 = new THREE.Geometry();
+  geometry2.vertices.push(c, b);
+
+  var line1 = new THREE.Line(geometry1, material);
+  var line2 = new THREE.Line(geometry2, material);
+  this.toolpath.add(line1);
+  this.toolpath.add(line2);
+}
+
 Simulator.prototype.addCircle = function (cols, end) {
   var diameter = parseFloat(cols[1]);
   var centerX = parseFloat(cols[2]);
@@ -273,6 +345,7 @@ Simulator.prototype.addCircle = function (cols, end) {
       end.z
     );
     geometry.vertices.push(vertex);
+
   }
 
   for (var i = 1; i <= repetitions; i++) {
@@ -323,6 +396,11 @@ Simulator.prototype.loadSbp = function (data) {
       case 'CP':
         lineType = 'cut-circle';
         break;
+      case 'CG':
+        lineType = 'cut-gcode-circle';
+        end.x = parseFloat(cols[2]);
+        end.y = parseFloat(cols[3]);
+        break;
       case 'J2':
         end.x = parseFloat(cols[1]);
         end.y = parseFloat(cols[2]);
@@ -367,6 +445,14 @@ Simulator.prototype.loadSbp = function (data) {
       this.addLine(start, end, lineType);
     } else if (lineType == 'cut-circle') {
       this.addCircle(cols, end);
+    } else if (lineType == 'cut-gcode-circle') {
+      lineType = 'move';
+      currentPosition.copy(end);  
+      var point = currentPosition.clone();
+      this.addGcodeCircle(cols, start, end, lineType);
+      point.lineType = lineType;
+      this.points.push(point);
+          
     }
 
     lineType = null;
