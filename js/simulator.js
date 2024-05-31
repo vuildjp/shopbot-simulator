@@ -283,6 +283,15 @@ Simulator.prototype.addGcodeCircle = function (cols, start, end, lineType) {
   var endAngle = Math.atan2(endPointY - centerY, endPointX - centerX);
   sweepAngle = startVec.angleTo(endVec);
 
+  var arcLength = sweepAngle * radius;
+  if (arcLength < 20) {
+    // Arcの長さが小さい場合はLineとする
+    geometry.vertices.push(start, end);  
+    var line = new THREE.Line(geometry, material);
+    this.toolpath.add(line);
+    return;    
+  }
+
   if (direction > 0) {
     // G2 CW
     sweepAngle = -sweepAngle;  
@@ -450,8 +459,8 @@ Simulator.prototype.loadSbp = function (data) {
       currentPosition.copy(end);  
       var point = currentPosition.clone();
       this.addGcodeCircle(cols, start, end, lineType);
-      point.lineType = lineType;
-      this.points.push(point);
+      //point.lineType = lineType;
+      //this.points.push(point);
           
     }
 
